@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+*.egg
+
+# Virtual environments
+venv/
+.env
+
+# Visual Studio
+.vs/
+*.user
+*.sln
+*.pyproj
+
+# C++ build artifacts
+build/
+*.o
+*.a
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# JSON outputs from dwg_inspect runs
+*.json
+!docs/*.json
