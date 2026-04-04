@@ -309,7 +309,10 @@ class TestFullReport:
         assert report["overall_grade"] in ("D", "F")
 
     def test_empty_spec_results_handled(self):
-        gen    = make_generator_with_mocks(spec_results=[])
+        gen = ReportGenerator()
+        gen._load_run          = MagicMock(return_value=SAMPLE_RUN)
+        gen._load_spec_results = MagicMock(return_value=[])
+        gen._load_ragas_scores = MagicMock(return_value=[])
         report = gen.generate(99)
         assert report["pass_rate"] == 0.0
         assert report["overall_grade"] == "F"

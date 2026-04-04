@@ -181,17 +181,19 @@ class ReportGenerator:
         severity_fails: dict,
         counts:        dict,
     ) -> str:
-        """
-        Compute overall grade. Critical failures automatically cap at D.
-        High-severity failures cap at C.
-        """
         if severity_fails.get("critical", 0) > 0:
             return "D" if pass_rate >= 0.50 else "F"
-        if severity_fails.get("high", 0) > 2:
-            base = self._grade_from_rate(pass_rate)
-            return min(base, "C", key=lambda g: "ABCDF".index(g))
 
-        return self._grade_from_rate(pass_rate)
+        base = self._grade_from_rate(pass_rate)
+
+        if severity_fails.get("high", 0) > 2:
+            # Cap at C regardless of pass rate
+            grades = ["A", "B", "C", "D", "F"]
+            base_idx = grades.index(base)
+            cap_idx  = grades.index("C")
+            return grades[max(base_idx, cap_idx)]
+
+        return base
 
     def _grade_from_rate(self, pass_rate: float) -> str:
         for grade, threshold in GRADE_THRESHOLDS.items():
