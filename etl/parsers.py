@@ -223,8 +223,8 @@ def parse_text_chunks(cur, drawing_id: int, entities: list[dict]) -> int:
                 """
                 INSERT INTO drawing_text_chunks
                     (drawing_id, entity_handle, entity_type, layer,
-                     chunk_text, position_json, embedding)
-                VALUES (%s, %s, %s, %s, %s, %s, NULL)
+                     chunk_text, position_json)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
                 (
                     drawing_id,
