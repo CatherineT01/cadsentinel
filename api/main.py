@@ -44,12 +44,14 @@ try:
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
-    # Provide stubs so the module is importable without FastAPI installed
     class FastAPI:  # type: ignore
         def get(self, *a, **kw): return lambda f: f
         def post(self, *a, **kw): return lambda f: f
-    class BaseModel:  # type: ignore
-        pass
+    try:
+        from pydantic import BaseModel
+    except ImportError:
+        class BaseModel:  # type: ignore
+            pass
     HTTPException = Exception  # type: ignore
 
 from ..etl.db import get_connection

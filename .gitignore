@@ -26,4 +26,5 @@ cmake_install.cmake
 
 # JSON outputs from dwg_inspect runs
 *.json
-!docs/*.json
+!docs/*.json*.pdf
+*.docx

@@ -46,6 +46,7 @@ log = logging.getLogger(__name__)
 
 EMBEDDING_MODEL = os.environ.get("CADSENTINEL_EMBEDDING_MODEL", "text-embedding-3-small")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL")
+CHROMA_PATH = os.environ.get("CADSENTINEL_CHROMA_PATH", "./chroma_db")
 
 # Source type constants — match retrieval_recipe source_types values
 SOURCE_NOTE       = "note"
