@@ -239,13 +239,13 @@ class TestParseTextChunks:
         ents = [{"type": "TEXT", "category": "text", "handle": "ZY",
                  "layer": "0", "text": "   ", "geometry": {}}]
         assert parse_text_chunks(cur, 1, ents) == 0
-
     def test_embedding_is_null(self):
         cur = make_cur()
         parse_text_chunks(cur, 1, [SAMPLE_JSON["entities"][0]])
         sql = cur.execute.call_args[0][0]
-        assert "NULL" in sql
-
+        # embedding column is not included in INSERT — filled later by embedder
+        assert "drawing_text_chunks" in sql
+        assert "embedding" not in sql
     def test_position_json_from_ins_pt(self):
         cur = make_cur()
         parse_text_chunks(cur, 1, [SAMPLE_JSON["entities"][0]])

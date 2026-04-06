@@ -33,6 +33,11 @@ from ..validators import (
     LayerNamingValidator,
     DimensionUnitsValidator,
     RevisionTableValidator,
+    ModelCodeValidator,
+    StandardNotesValidator,
+    CylinderSpecValidator,
+    JITBoreValidator,
+    JITMountValidator,
 )
 from .llm_checker import llm_check
 from .result_writer import (
@@ -54,8 +59,13 @@ DETERMINISTIC_VALIDATORS = {
     "layer_naming":     LayerNamingValidator(),
     "dimension_units":  DimensionUnitsValidator(),
     "revision_table":   RevisionTableValidator(),
-    "block_naming":     LayerNamingValidator(),   # reuses layer logic for block names
-    "text_style":       TitleBlockValidator(),    # reuses title block logic
+    "block_naming":     LayerNamingValidator(),
+    "text_style":       TitleBlockValidator(),
+    "model_code":       ModelCodeValidator(),
+    "standard_notes":   StandardNotesValidator(),
+    "cylinder_spec":    CylinderSpecValidator(),
+    "jit_bore":         JITBoreValidator(),
+    "jit_mount":        JITMountValidator(),
 }
 
 

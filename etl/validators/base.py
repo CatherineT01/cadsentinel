@@ -216,3 +216,51 @@ def get_text_chunks(evidence: dict) -> list[dict]:
         item for item in evidence.get("evidence", [])
         if item.get("source") == "drawing_text_chunks"
     ]
+
+# ── Text collection utility ──────────────────────────────────── #
+
+# AutoCAD control code substitutions
+_AUTOCAD_SYMBOLS = {
+    "%%p": "±",
+    "%%d": "°",
+    "%%c": "⌀",
+    "%%u": "",   # underline toggle — strip it
+    "%%o": "",   # overline toggle — strip it
+}
+
+
+def collect_all_text(evidence: dict) -> str:
+    """
+    Collect all text content from an evidence package into one
+    normalized string for substring searching.
+
+    - Pulls text from drawing_text_chunks, drawing_entities,
+      and drawing_title_block attributes
+    - Substitutes AutoCAD control codes (%%p, %%d, %%c)
+    - Lowercases and collapses whitespace
+    - Returns empty string if no text evidence found
+    """
+    parts: list[str] = []
+
+    for item in evidence.get("evidence", []):
+        source = item.get("source", "")
+
+        if source in ("drawing_text_chunks", "drawing_entities"):
+            text = item.get("text") or item.get("chunk_text") or ""
+            if text.strip():
+                parts.append(text.strip())
+
+        elif source == "drawing_title_block":
+            attrs = item.get("attributes") or {}
+            for val in attrs.values():
+                if val and str(val).strip():
+                    parts.append(str(val).strip())
+
+    combined = " ".join(parts)
+
+    # Substitute AutoCAD control codes
+    for code, replacement in _AUTOCAD_SYMBOLS.items():
+        combined = combined.replace(code, replacement)
+
+    # Normalize whitespace and lowercase
+    return " ".join(combined.lower().split())

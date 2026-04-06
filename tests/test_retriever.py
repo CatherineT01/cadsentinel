@@ -373,22 +373,22 @@ class TestVectorSearchSkipping:
     def test_skips_vector_search_when_no_embeddings(self):
         retriever = EvidenceRetriever(embed_for_vector_search=True)
         cur = MagicMock()
-        cur.fetchone.return_value = {"n": 0}  # no embeddings
         cur.fetchall.return_value = []
+        cur.fetchone.return_value = None
         conn = make_conn(cur)
 
-        with patch("cadsentinel.etl.retriever.get_connection") as mock_gc:
+        with patch("cadsentinel.etl.retriever.get_connection") as mock_gc, \
+             patch.object(retriever, "_vector_search", return_value=[]) as mock_vs:
             mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
-            mock_gc.return_value.__exit__ = MagicMock(return_value=False)
-
+            mock_gc.return_value.__exit__  = MagicMock(return_value=False)
             package = retriever.retrieve(
                 drawing_id=DRAWING_ID,
                 spec_rule_id=SPEC_RULE_ID,
                 normalized_rule_text=RULE_TEXT,
                 retrieval_recipe={**SAMPLE_RECIPE, "source_types": []},
             )
-
         assert package["evidence_count"] == 0
+        mock_vs.assert_called_once()
 
     def test_skips_vector_search_when_embed_disabled(self):
         """When embed_for_vector_search=False, the embedding API is never called."""

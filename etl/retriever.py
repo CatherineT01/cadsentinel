@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import logging
 import os
+import json as __json
 from typing import Any, Optional
 
 from .db import get_connection
@@ -330,7 +331,28 @@ class EvidenceRetriever:
             for r in rows
         ]
 
-    # ── Stage 2: vector search ───────────────────────────────────── #
+    # ── Stage 2: vector search (ChromaDB) ───────────────────────── #
+
+    def _get_chroma_collection(self):
+        """Connect to the existing AutoCAD_Reader ChromaDB collection."""
+        try:
+            import chromadb
+            from chromadb.utils import embedding_functions
+        except ImportError as exc:
+            raise RetrievalError(
+                "chromadb package required: pip install chromadb"
+            ) from exc
+
+        chroma_path = os.environ.get(
+            "CADSENTINEL_CHROMA_PATH", r"D:\AutoCAD_Reader\chroma"
+        )
+        client     = chromadb.PersistentClient(path=chroma_path)
+        default_ef = embedding_functions.DefaultEmbeddingFunction()
+        return client.get_or_create_collection(
+            name="autocad_drawings",
+            embedding_function=default_ef,
+        )
+
 
     def _vector_search(
         self,
@@ -340,70 +362,99 @@ class EvidenceRetriever:
         top_k: int,
     ) -> list[dict]:
         """
-        Embed query_text and find the most similar text chunks for this drawing.
-        Returns empty list if embeddings are not available or query fails.
+        Semantic search over the AutoCAD_Reader ChromaDB collection.
+
+        Uses the same DefaultEmbeddingFunction as AutoCAD_Reader so
+        query vectors are compatible with stored embeddings.
+
+        Filters by filename if the drawing record exists in PostgreSQL.
+        Falls back to unfiltered search if no filename match found.
         """
-        # Check if any embeddings exist for this drawing first
-        cur.execute(
-            """
-            SELECT COUNT(*) AS n
-            FROM drawing_text_chunks
-            WHERE drawing_id = %s AND embedding IS NOT NULL
-            """,
-            (drawing_id,),
-        )
-        result = cur.fetchone()
-        if not result or result["n"] == 0:
-            log.debug(
-                "No embeddings found for drawing_id=%d — skipping vector search",
-                drawing_id,
-            )
-            return []
-
-        # Embed the query text
         try:
-            query_vector = self._embed_text(query_text)
+            collection = self._get_chroma_collection()
         except Exception:
-            log.exception("Failed to embed query text — skipping vector search")
+            log.exception("Failed to connect to ChromaDB — skipping vector search")
             return []
 
-        # pgvector cosine similarity search
+        if collection.count() == 0:
+            log.debug("ChromaDB collection is empty — skipping vector search")
+            return []
+
+        # Get the filename for this drawing from PostgreSQL
+        drawing_filename = None
         try:
             cur.execute(
-                """
-                SELECT
-                    id,
-                    entity_handle,
-                    entity_type,
-                    layer,
-                    chunk_text,
-                    position_json,
-                    1 - (embedding <=> %s::vector) AS similarity_score
-                FROM drawing_text_chunks
-                WHERE drawing_id = %s
-                  AND embedding IS NOT NULL
-                ORDER BY embedding <=> %s::vector
-                LIMIT %s
-                """,
-                (str(query_vector), drawing_id, str(query_vector), top_k),
+                "SELECT filename FROM drawings WHERE id = %s",
+                (drawing_id,),
             )
-            rows = cur.fetchall()
+            row = cur.fetchone()
+            if row:
+                drawing_filename = row["filename"]
         except Exception:
-            log.exception("Vector search query failed — skipping")
+            pass
+
+        # Query ChromaDB
+        try:
+            query_kwargs: dict = {
+                "query_texts": [query_text],
+                "n_results":   min(top_k, collection.count()),
+                "include":     ["documents", "metadatas", "distances"],
+            }
+            # Filter to this drawing's filename if we have it
+            if drawing_filename:
+                query_kwargs["where"] = {"filename": drawing_filename}
+
+            results = collection.query(**query_kwargs)
+        except Exception:
+            # If filename filter fails (file not in collection), retry without filter
+            try:
+                results = collection.query(
+                    query_texts=[query_text],
+                    n_results=min(top_k, collection.count()),
+                    include=["documents", "metadatas", "distances"],
+                )
+            except Exception:
+                log.exception("ChromaDB query failed — skipping vector search")
+                return []
+
+        if not results or not results.get("ids") or not results["ids"][0]:
             return []
 
-        return [
-            {
-                "source":           "drawing_text_chunks",
-                "entity_handle":    r["entity_handle"],
-                "entity_type":      r["entity_type"],
-                "layer":            r["layer"],
-                "text":             r["chunk_text"],
-                "position":         r["position_json"],
-                "similarity_score": float(r["similarity_score"]),
-            }
-            for r in rows
-        ]
+        ids       = results["ids"][0]
+        distances = results["distances"][0]
+        metadatas = results["metadatas"][0]
+        documents = results["documents"][0]
+
+        evidence = []
+        for i, _ in enumerate(ids):
+            meta       = metadatas[i] if metadatas else {}
+            distance   = distances[i]  if distances  else 1.0
+            similarity = max(0.0, 1.0 - float(distance))
+
+            # Parse specs JSON string
+            specs = {}
+            try:
+                specs = _json.loads(meta.get("specs", "{}"))
+            except Exception:
+                pass
+
+            evidence.append({
+                "source":         "chromadb",
+                "entity_handle":  None,
+                "entity_type":    "drawing_chunk",
+                "layer":          None,
+                "text":           documents[i] if documents else "",
+                "filename":       meta.get("filename"),
+                "filepath":       meta.get("filepath"),
+                "file_type":      meta.get("file_type"),
+                "description":    meta.get("description"),
+                "drawing_number": specs.get("drawing_number"),
+                "key_dimensions": specs.get("key_dimensions"),
+                "notes":          specs.get("notes"),
+                "similarity_score": similarity,
+            })
+
+        return evidence
 
     def _embed_text(self, text: str) -> list[float]:
         """Embed a single string using the configured embedding model."""

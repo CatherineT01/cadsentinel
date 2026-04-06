@@ -38,6 +38,11 @@ class RuleType(str, Enum):
     SAFETY_NOTE       = "safety_note"
     CROSS_REFERENCE   = "cross_reference"
     GENERAL           = "general"
+    MODEL_CODE      = "model_code"
+    STANDARD_NOTES  = "standard_notes"
+    CYLINDER_SPEC   = "cylinder_spec"
+    JIT_BORE        = "jit_bore"
+    JIT_MOUNT       = "jit_mount"
 
 
 @dataclass
@@ -133,6 +138,11 @@ RULE_TYPE_EXECUTION_DEFAULTS: dict[str, str] = {
     RuleType.CROSS_REFERENCE.value:  ExecutionMode.HYBRID.value,
     RuleType.SAFETY_NOTE.value:      ExecutionMode.LLM_JUDGE.value,
     RuleType.GENERAL.value:          ExecutionMode.HYBRID.value,
+    RuleType.MODEL_CODE.value:     ExecutionMode.DETERMINISTIC.value,
+    RuleType.STANDARD_NOTES.value: ExecutionMode.DETERMINISTIC.value,
+    RuleType.CYLINDER_SPEC.value:  ExecutionMode.DETERMINISTIC.value,
+    RuleType.JIT_BORE.value:       ExecutionMode.DETERMINISTIC.value,
+    RuleType.JIT_MOUNT.value:     ExecutionMode.DETERMINISTIC.value,
 }
 
 
