@@ -40,7 +40,6 @@ CREATE TABLE IF NOT EXISTS spec_document_sections (
     char_end         INT,
     source_page      INT,                    -- PDF page number if available
     section_hint     TEXT,                   -- detected heading if any
-    embedding        vector(1536),           -- optional: embed chunks for semantic search
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (spec_document_id, chunk_index)
 );

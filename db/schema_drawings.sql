@@ -1,13 +1,11 @@
 -- cadsentinel/db/schema_drawings.sql
 -- Drawing-side tables populated by the Python ETL ingestion service.
 -- Run this once against your PostgreSQL database before first ingestion.
--- Requires: pgvector extension (CREATE EXTENSION IF NOT EXISTS vector;)
 
 -- ─────────────────────────────────────────────────────────────────────────── --
 -- Prerequisites
 -- ─────────────────────────────────────────────────────────────────────────── --
 
-CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;  -- for text search on layer names, block names
 
 -- ─────────────────────────────────────────────────────────────────────────── --
@@ -172,21 +170,11 @@ CREATE TABLE IF NOT EXISTS drawing_text_chunks (
     layer          TEXT,
     chunk_text     TEXT NOT NULL,
     position_json  JSONB,                              -- ins_pt {x, y, z} for spatial proximity
-    embedding      vector(1536),                       -- NULL until embedding worker fills it
-                                                       -- 1536 = OpenAI text-embedding-3-small dims
-                                                       -- Change to 768 for local models
+                                                                                                                            
     embedded_at    TIMESTAMPTZ,
     embedded_model TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_drawing_text_chunks_drawing_id ON drawing_text_chunks (drawing_id);
 CREATE INDEX IF NOT EXISTS idx_drawing_text_chunks_handle     ON drawing_text_chunks (entity_handle);
-CREATE INDEX IF NOT EXISTS idx_drawing_text_chunks_pending    ON drawing_text_chunks (drawing_id)
-    WHERE embedding IS NULL;                           -- fast lookup of un-embedded chunks
-
--- Vector similarity index (created AFTER data is loaded for efficiency)
--- Run this manually once initial data is loaded:
--- CREATE INDEX idx_drawing_text_chunks_embedding
---     ON drawing_text_chunks
---     USING ivfflat (embedding vector_cosine_ops)
---     WITH (lists = 100);
+                        
