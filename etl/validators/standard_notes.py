@@ -70,7 +70,6 @@ class StandardNotesValidator(BaseValidator):
 
         severity = rule_config.get("severity_default", "medium")
 
-        # Collect and normalize all drawing text
         combined = collect_all_text(evidence)
 
         if not combined:
@@ -79,8 +78,12 @@ class StandardNotesValidator(BaseValidator):
                 severity = severity,
             )
 
-        # Allow rule_config to override the required notes list
-        required = rule_config.get("required_notes", _REQUIRED_NOTES)
+        # If a specific note is configured, check only that one
+        single_note = rule_config.get("required_note")
+        if single_note:
+            required = [single_note] if isinstance(single_note, tuple) else [tuple(single_note)]
+        else:
+            required = rule_config.get("required_notes", _REQUIRED_NOTES)
 
         missing_issues = []
         found_notes    = []

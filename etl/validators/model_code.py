@@ -31,14 +31,15 @@ from .base import (
 )
 
 # JIT H Series model code pattern
-# H-[MOUNT]-[BORE]X[STROKE]X[ROD]-[RODTHREAD]-[CUSHION]-[PORT]-[SEAL]-[SPECIAL]
+# Handles both formats:
+#   H-MT4-4X65X2-1-NC-S-V-S  (compact with X)
+#   H-ME5-3.25 X 26.0 X 1.75 (spaced with X)
 _MODEL_CODE_PATTERN = re.compile(
-    r"\bH-[A-Z0-9]+-[\d.]+X[\d.]+X[\d.]+-\S+-\S+-\S+-\S+-\S+",
+    r"\bH-[A-Z0-9]+-[\d.]+\s*[Xx]\s*[\d.]+\s*[Xx]\s*[\d.]+(?:-\S+)*",
     re.IGNORECASE,
 )
 
 # Partial match — something that looks like it's trying to be a model code
-# but doesn't fully match (used to detect malformed codes)
 _PARTIAL_MODEL_PATTERN = re.compile(
     r"\bH-[A-Z0-9]+-[\d.]+",
     re.IGNORECASE,

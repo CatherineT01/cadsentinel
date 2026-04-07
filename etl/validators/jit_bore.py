@@ -36,8 +36,15 @@ _VALID_BORE_SIZES: frozenset[float] = frozenset({
 })
 
 # Matches "BORE - 3.250" or "BORE: 3.25" or "BORE 4.0"
+# Matches "BORE - 3.250" or "BORE: 3.25" or "BORE 4.0"
 _BORE_PATTERN = re.compile(
     r"\bbore\s*[-:]\s*([\d.]+)",
+    re.IGNORECASE,
+)
+
+# Fallback — extract bore from model code: H-[MOUNT]-[BORE]X[STROKE]X[ROD]
+_BORE_FROM_MODEL_PATTERN = re.compile(
+    r"\bH-[A-Z0-9]+-(\d+\.?\d*)\s*[Xx]",
     re.IGNORECASE,
 )
 
@@ -55,84 +62,82 @@ class JITBoreValidator(BaseValidator):
     name = "jit_bore"
 
     def _validate(
-        self,
-        evidence:    dict,
-        rule_config: dict,
-    ) -> ValidatorResult:
+            self,
+            evidence:    dict,
+            rule_config: dict,
+        ) -> ValidatorResult:
 
-        severity = rule_config.get("severity_default", "high")
+            severity = rule_config.get("severity_default", "high")
 
-        # Allow rule_config to override valid bore sizes
-        valid_sizes = rule_config.get("valid_bore_sizes")
-        if valid_sizes:
-            valid_set = frozenset(float(v) for v in valid_sizes)
-        else:
-            valid_set = _VALID_BORE_SIZES
+            valid_sizes = rule_config.get("valid_bore_sizes")
+            if valid_sizes:
+                valid_set = frozenset(float(v) for v in valid_sizes)
+            else:
+                valid_set = _VALID_BORE_SIZES
 
-        # Collect and normalize all drawing text
-        combined = collect_all_text(evidence)
+            combined = collect_all_text(evidence)
 
-        if not combined:
-            return needs_review_result(
-                reason   = "No text evidence available to check bore size.",
-                severity = severity,
-            )
+            if not combined:
+                return needs_review_result(
+                    reason   = "No text evidence available to check bore size.",
+                    severity = severity,
+                )
 
-        # Search for bore value in text
-        match = _BORE_PATTERN.search(combined)
+            # Primary — explicit BORE entry in notes
+            match  = _BORE_PATTERN.search(combined)
+            source = "bore_note"
 
-        if not match:
-            return needs_review_result(
-                reason   = (
-                    "No BORE entry found in drawing text. "
-                    "Expected a NOTES block entry in the format: BORE - [value]"
-                ),
-                severity = severity,
-            )
+            # Fallback — extract bore from model code H-[MOUNT]-[BORE]X...
+            if not match:
+                match  = _BORE_FROM_MODEL_PATTERN.search(combined)
+                source = "model_code"
 
-        # Parse the bore value
-        try:
-            bore_value = float(match.group(1))
-        except ValueError:
-            return needs_review_result(
-                reason   = (
-                    f"Could not parse bore value from text: '{match.group(1)}'."
-                ),
-                severity = severity,
-            )
-
-        evidence_used = [make_evidence_ref(
-            source = "text_scan",
-            ref    = "bore",
-            value  = bore_value,
-        )]
-
-        # Check against valid list
-        if bore_value in valid_set:
-            return pass_result(
-                severity      = severity,
-                evidence_used = evidence_used,
-            )
-        else:
-            valid_sorted = sorted(valid_set)
-            return fail_result(
-                issue_summary = (
-                    f"Bore size {bore_value}\" is not a valid "
-                    f"JIT H Series bore size."
-                ),
-                issues        = [make_issue(
-                    issue_type    = "invalid_bore_size",
-                    description   = (
-                        f"Bore diameter {bore_value}\" is not in the list of "
-                        f"valid JIT H Series bore sizes: "
-                        f"{valid_sorted}."
+            if not match:
+                return needs_review_result(
+                    reason   = (
+                        "No BORE entry found in drawing text. "
+                        "Expected a NOTES block entry in the format: BORE - [value]"
                     ),
+                    severity = severity,
+                )
+
+            try:
+                bore_value = float(match.group(1))
+            except ValueError:
+                return needs_review_result(
+                    reason   = f"Could not parse bore value from text: '{match.group(1)}'.",
+                    severity = severity,
+                )
+
+            evidence_used = [make_evidence_ref(
+                source = source,
+                ref    = "bore",
+                value  = bore_value,
+            )]
+
+            if bore_value in valid_set:
+                return pass_result(
                     severity      = severity,
-                    suggested_fix = (
-                        f"Use one of the valid JIT H Series bore sizes: "
-                        f"{valid_sorted}."
+                    evidence_used = evidence_used,
+                )
+            else:
+                valid_sorted = sorted(valid_set)
+                return fail_result(
+                    issue_summary = (
+                        f"Bore size {bore_value}\" is not a valid "
+                        f"JIT H Series bore size."
                     ),
-                )],
-                severity      = severity,
-                evidence_used = evidence_used,
-            )
+                    issues        = [make_issue(
+                        issue_type    = "invalid_bore_size",
+                        description   = (
+                            f"Bore diameter {bore_value}\" is not in the list of "
+                            f"valid JIT H Series bore sizes: {valid_sorted}."
+                        ),
+                        severity      = severity,
+                        suggested_fix = (
+                            f"Use one of the valid JIT H Series bore sizes: {valid_sorted}."
+                        ),
+                    )],
+                    severity      = severity,
+                    evidence_used = evidence_used,
+                )

@@ -37,9 +37,8 @@ _REQUIRED_CYLINDER_SPECS: list[tuple[str, str, str]] = [
     ("3.1", "Bore",   "bore"),
     ("3.2", "Stroke", "stroke"),
     ("3.3", "Rod",    "rod"),
-    ("3.4", "Ports",  "ports"),
+    ("3.4", "Ports",  "port"),   # matches 'port', 'ports', 'nptf port' etc.
 ]
-
 
 class CylinderSpecValidator(BaseValidator):
     """
@@ -62,27 +61,27 @@ class CylinderSpecValidator(BaseValidator):
 
         severity = rule_config.get("severity_default", "high")
 
-        # Collect and normalize all drawing text
         combined = collect_all_text(evidence)
 
         if not combined:
             return needs_review_result(
-                reason   = (
-                    "No text evidence available to check cylinder "
-                    "specification entries."
-                ),
+                reason   = "No text evidence available to check cylinder specification entries.",
                 severity = severity,
             )
 
-        # Allow rule_config to override required specs
-        required = rule_config.get("required_specs", _REQUIRED_CYLINDER_SPECS)
+        # If a specific entry is configured, check only that one
+        single_spec = rule_config.get("required_spec")
+        if single_spec:
+            required = [tuple(single_spec)]
+        else:
+            required = rule_config.get("required_specs", _REQUIRED_CYLINDER_SPECS)
 
         missing_issues = []
-        found_specs    = []
+        found_evidence = []
 
         for spec_code, label, substring in required:
             if substring.lower() in combined:
-                found_specs.append(make_evidence_ref(
+                found_evidence.append(make_evidence_ref(
                     source = "text_scan",
                     ref    = spec_code,
                     value  = label,
@@ -91,20 +90,18 @@ class CylinderSpecValidator(BaseValidator):
                 missing_issues.append(make_issue(
                     issue_type    = "cylinder_spec_missing",
                     description   = (
-                        f"Required cylinder specification '{label}' "
-                        f"(rule {spec_code}) not found in drawing notes. "
-                        f"Expected a NOTES block entry containing '{substring.upper()}'."
+                        f"{label} entry not found in drawing notes. "
+                        f"Expected text containing: '{substring}'."
                     ),
                     severity      = severity,
                     suggested_fix = (
-                        f"Add a {label.upper()} entry to the NOTES block. "
+                        f"Add the {label} entry to the NOTES block. "
                         f"Example: {label.upper()} - [value]"
                     ),
                 ))
 
         if missing_issues:
-            missing_labels = [r[1] for r in required
-                              if r[2].lower() not in combined]
+            missing_labels = [i["description"].split(" entry")[0] for i in missing_issues]
             return fail_result(
                 issue_summary = (
                     f"{len(missing_issues)} cylinder spec entry(s) missing: "
@@ -112,10 +109,10 @@ class CylinderSpecValidator(BaseValidator):
                 ),
                 issues        = missing_issues,
                 severity      = severity,
-                evidence_used = found_specs,
+                evidence_used = found_evidence,
             )
 
         return pass_result(
             severity      = severity,
-            evidence_used = found_specs,
+            evidence_used = found_evidence,
         )

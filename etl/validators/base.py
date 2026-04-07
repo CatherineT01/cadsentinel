@@ -224,43 +224,59 @@ _AUTOCAD_SYMBOLS = {
     "%%p": "±",
     "%%d": "°",
     "%%c": "⌀",
-    "%%u": "",   # underline toggle — strip it
-    "%%o": "",   # overline toggle — strip it
+    "%%u": "",
+    "%%o": "",
 }
+
+import re as _re
+
+# MTEXT formatting code patterns to strip
+_MTEXT_FORMAT_PATTERN = _re.compile(
+    r'\\A\d+;'           # \A1; alignment codes
+    r'|\\[fF][^;]+;'     # \fFontName|...; or \Fromant.shx; font codes (case-insensitive)
+    r'|\\C\d+;'          # \C6; color codes
+    r'|\\H[\d.]+x?;'     # \H2.5; height codes
+    r'|\\W[\d.]+;'       # \W1.0; width codes
+    r'|\\Q[\d.]+;'       # \Q15; oblique codes
+    r'|\\T[\d.]+;'       # \T1.0; tracking codes
+    r'|\\S[^;^]*\^[^;]*;' # \S fraction codes
+    r'|[{}]'             # curly braces
+    r'|\\P'              # \P paragraph break
+    r'|\\~'              # \~ non-breaking space
+    r'|\\;'              # \; escape
+)
+
+
+def _strip_mtext(text: str) -> str:
+    """Strip AutoCAD MTEXT formatting codes from a string."""
+    cleaned = _MTEXT_FORMAT_PATTERN.sub(' ', text)
+    # Substitute AutoCAD control codes
+    for code, replacement in _AUTOCAD_SYMBOLS.items():
+        cleaned = cleaned.replace(code, replacement)
+    return cleaned
 
 
 def collect_all_text(evidence: dict) -> str:
-    """
-    Collect all text content from an evidence package into one
-    normalized string for substring searching.
-
-    - Pulls text from drawing_text_chunks, drawing_entities,
-      and drawing_title_block attributes
-    - Substitutes AutoCAD control codes (%%p, %%d, %%c)
-    - Lowercases and collapses whitespace
-    - Returns empty string if no text evidence found
-    """
     parts: list[str] = []
 
     for item in evidence.get("evidence", []):
         source = item.get("source", "")
 
         if source in ("drawing_text_chunks", "drawing_entities"):
-            text = item.get("text") or item.get("chunk_text") or ""
+            text = (
+                item.get("text") or
+                item.get("chunk_text") or
+                item.get("text_content") or
+                ""
+            )
             if text.strip():
-                parts.append(text.strip())
+                parts.append(_strip_mtext(text.strip()))
 
         elif source == "drawing_title_block":
             attrs = item.get("attributes") or {}
             for val in attrs.values():
                 if val and str(val).strip():
-                    parts.append(str(val).strip())
+                    parts.append(_strip_mtext(str(val).strip()))
 
     combined = " ".join(parts)
-
-    # Substitute AutoCAD control codes
-    for code, replacement in _AUTOCAD_SYMBOLS.items():
-        combined = combined.replace(code, replacement)
-
-    # Normalize whitespace and lowercase
     return " ".join(combined.lower().split())

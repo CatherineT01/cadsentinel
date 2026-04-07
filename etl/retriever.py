@@ -193,7 +193,7 @@ class EvidenceRetriever:
             for kw in keyword_filters:
                 params.append(f"%{kw}%")
 
-        sql += " LIMIT 50"
+        sql += " ORDER BY LENGTH(text_content) DESC LIMIT 50"
 
         cur.execute(sql, params)
         rows = cur.fetchall()
