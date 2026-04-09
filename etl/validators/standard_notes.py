@@ -78,17 +78,43 @@ class StandardNotesValidator(BaseValidator):
                 severity = severity,
             )
 
-        # If a specific note is configured, check only that one
         single_note = rule_config.get("required_note")
+        alt_note    = rule_config.get("alt_note")
+
         if single_note:
-            required = [single_note] if isinstance(single_note, tuple) else [tuple(single_note)]
-        else:
-            required = rule_config.get("required_notes", _REQUIRED_NOTES)
+            spec_code, label, substring = str(single_note[0]), str(single_note[1]), str(single_note[2])
+            found = substring.lower() in combined
+            if not found and alt_note:
+                found = str(alt_note).lower() in combined
+            if found:
+                return pass_result(
+                    severity      = severity,
+                    evidence_used = [make_evidence_ref(
+                        source = "text_scan",
+                        ref    = spec_code,
+                        value  = label,
+                    )],
+                )
+            return fail_result(
+                issue_summary = f"1 standard note(s) missing: {label}.",
+                issues        = [make_issue(
+                    issue_type    = "standard_note_missing",
+                    description   = (
+                        f"Required standard note '{label}' (rule {spec_code}) "
+                        f"not found in drawing. Expected text containing: '{substring}'."
+                    ),
+                    severity      = severity,
+                    suggested_fix = f"Add the standard note for {label} to the drawing notes block.",
+                )],
+                severity      = severity,
+                evidence_used = [],
+            )
 
-        missing_issues = []
-        found_notes    = []
+        missing_issues: list[dict] = []
+        found_notes:    list[dict] = []
 
-        for spec_code, label, substring in required:
+        for entry in _REQUIRED_NOTES:
+            spec_code, label, substring = entry[0], entry[1], entry[2]
             if substring.lower() in combined:
                 found_notes.append(make_evidence_ref(
                     source = "text_scan",
@@ -100,26 +126,16 @@ class StandardNotesValidator(BaseValidator):
                     issue_type    = "standard_note_missing",
                     description   = (
                         f"Required standard note '{label}' (rule {spec_code}) "
-                        f"not found in drawing. Expected text containing: "
-                        f"'{substring}'."
+                        f"not found in drawing. Expected text containing: '{substring}'."
                     ),
                     severity      = severity,
-                    suggested_fix = (
-                        f"Add the standard note for {label} to the drawing "
-                        f"notes block."
-                    ),
+                    suggested_fix = f"Add the standard note for {label} to the drawing notes block.",
                 ))
 
         if missing_issues:
-            missing_labels = [
-                i["description"].split("'")[1]
-                for i in missing_issues
-            ]
+            missing_labels = [i["description"].split("'")[1] for i in missing_issues]
             return fail_result(
-                issue_summary = (
-                    f"{len(missing_issues)} standard note(s) missing: "
-                    f"{', '.join(missing_labels)}."
-                ),
+                issue_summary = f"{len(missing_issues)} standard note(s) missing: {', '.join(missing_labels)}.",
                 issues        = missing_issues,
                 severity      = severity,
                 evidence_used = found_notes,

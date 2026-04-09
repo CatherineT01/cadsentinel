@@ -30,10 +30,20 @@ from .base import (
     needs_review_result,
 )
 
-# Valid JIT H Series bore sizes in inches
-_VALID_BORE_SIZES: frozenset[float] = frozenset({
-    1.5, 2.0, 2.5, 3.25, 4.0, 5.0, 6.0, 7.0, 8.0
+# Valid JIT H Series bore sizes (inches)
+_VALID_BORE_SIZES_IN: frozenset[float] = frozenset({
+    1.5, 2.0, 2.5, 3.25, 4.0, 5.0, 6.0, 7.0, 8.0,
+    10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0,
 })
+
+# Valid JIT metric bore sizes (mm) — converted to inches for comparison
+# 25, 32, 40, 50, 63, 80, 100, 125, 160, 200 mm
+_VALID_BORE_SIZES_MM: frozenset[float] = frozenset({
+    round(mm / 25.4, 4)
+    for mm in [25, 32, 40, 50, 63, 80, 100, 125, 160, 200]
+})
+
+_VALID_BORE_SIZES: frozenset[float] = _VALID_BORE_SIZES_IN | _VALID_BORE_SIZES_MM
 
 # Matches "BORE - 3.250" or "BORE: 3.25" or "BORE 4.0"
 # Matches "BORE - 3.250" or "BORE: 3.25" or "BORE 4.0"

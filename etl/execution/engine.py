@@ -30,6 +30,7 @@ from ..db import get_connection
 from ..retriever import EvidenceRetriever
 from ..validators import (
     TitleBlockValidator,
+    ConfidentialityValidator,
     LayerNamingValidator,
     DimensionUnitsValidator,
     RevisionTableValidator,
@@ -66,6 +67,7 @@ DETERMINISTIC_VALIDATORS = {
     "cylinder_spec":    CylinderSpecValidator(),
     "jit_bore":         JITBoreValidator(),
     "jit_mount":        JITMountValidator(),
+    "confidentiality": ConfidentialityValidator(),
 }
 
 

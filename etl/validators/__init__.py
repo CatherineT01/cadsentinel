@@ -8,9 +8,11 @@ from .standard_notes  import StandardNotesValidator
 from .cylinder_spec   import CylinderSpecValidator
 from .jit_bore        import JITBoreValidator
 from .jit_mount       import JITMountValidator
+from .confidentiality import ConfidentialityValidator
 
 __all__ = [
     "TitleBlockValidator",
+    "ConfidentialityValidator",
     "LayerNamingValidator",
     "DimensionUnitsValidator",
     "RevisionTableValidator",
