@@ -1,3 +1,5 @@
+# _init__.py - evaluation
+
 """cadsentinel RAGAS evaluation layer"""
 from .ragas_scorer import RAGASScorer, SpecEvalResult
 from .eval_writer  import write_eval_scores, evaluate_spellcheck_run

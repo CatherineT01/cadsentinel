@@ -1,3 +1,5 @@
+# __init__py - validators
+
 """cadsentinel deterministic validators"""
 from .title_block     import TitleBlockValidator
 from .layer_naming    import LayerNamingValidator

@@ -1,3 +1,5 @@
+# drawing_type_classifier.py
+
 """
 cadsentinel.etl.classifiers.drawing_type_classifier
 ------------------------------------------------------
@@ -24,7 +26,7 @@ Drawing types:
 """
 
 from __future__ import annotations
-
+import os 
 import json
 import logging
 import re
@@ -96,18 +98,24 @@ class DrawingTypeClassifier:
         drawing_id: int,
         filename:   str,
         evidence:   dict,
+        dwg_path:   str | None = None,
     ) -> DrawingTypeResult:
         """
         Classify a drawing into a drawing type.
-
-        Args:
-            drawing_id: database drawing ID
-            filename:   original DWG filename
-            evidence:   evidence package from retriever
-
-        Returns:
-            DrawingTypeResult with type_code, confidence, source
+        Stage 0: Vision, Stage 1: Title block, Stage 2: Filename, Stage 3: LLM text
         """
+        # Stage 0 - vision classification (most accurate)
+        if dwg_path and os.path.exists(dwg_path):
+            try:
+                from .vision_classifier import VisionClassifier
+                vision = VisionClassifier(provider=self.provider)
+                vresult = vision.classify_from_file(dwg_path, filename)
+                if vresult and vresult.confidence >= 0.75:
+                    log.info(f"Drawing {drawing_id} classified as '{vresult.type_code}' from vision")
+                    return vresult
+            except Exception as e:
+                log.warning(f"Vision classification failed: {e}")
+
         # Stage 1 — title block
         result = self._classify_from_title_block(evidence)
         if result and result.confidence >= 0.80:

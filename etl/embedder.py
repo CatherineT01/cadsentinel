@@ -1,3 +1,5 @@
+# embedder.py
+
 """
 cadsentinel.etl.embedder
 ------------------------

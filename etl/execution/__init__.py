@@ -1,3 +1,5 @@
+# __init__.py- execution
+
 """cadsentinel spec execution engine"""
 from .engine         import SpellcheckEngine
 from .llm_checker    import llm_check, format_evidence_for_prompt

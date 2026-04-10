@@ -1,3 +1,5 @@
+# spec_extractor.py
+
 """
 cadsentinel.etl.spec_extractor
 --------------------------------

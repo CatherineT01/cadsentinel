@@ -1,3 +1,5 @@
+# type_store.py
+
 """
 cadsentinel.etl.classifiers.type_store
 ----------------------------------------
