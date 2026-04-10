@@ -114,7 +114,12 @@ class SpellcheckEngine:
         )
 
         # Load approved rules
-        rules = self._load_approved_rules(spec_document_id)
+        # Classify drawing type and filter rules accordingly
+        from ..classifiers.type_store import get_drawing_type
+        stored_type = get_drawing_type(drawing_id)
+        drawing_type_code = stored_type.type_code if stored_type else None
+        log.info(f"Drawing {drawing_id} type: {drawing_type_code}")
+        rules = self._load_approved_rules(spec_document_id, drawing_type_code)
         if not rules:
             log.warning(
                 "No approved rules found for spec_document_id=%d",
@@ -365,33 +370,64 @@ class SpellcheckEngine:
 
     # ── DB helpers ───────────────────────────────────────────────── #
 
-    def _load_approved_rules(self, spec_document_id: int) -> list[dict]:
-        """Load all approved spec rules for a spec document."""
+    def _load_approved_rules(
+        self,
+        spec_document_id: int,
+        drawing_type_code: str | None = None,
+    ) -> list[dict]:
+        """Load approved spec rules, filtered by drawing type if provided."""
         with get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT
-                        id,
-                        spec_code,
-                        spec_title,
-                        normalized_rule_text,
-                        rule_type,
-                        execution_mode,
-                        severity_default,
-                        entity_scope,
-                        expected_evidence_types,
-                        checker_prompt,
-                        retrieval_recipe,
-                        structured_rule,
-                        rule_version
-                    FROM spec_rules
-                    WHERE spec_document_id = %s
-                      AND approved = TRUE
-                    ORDER BY id
-                    """,
-                    (spec_document_id,),
-                )
+                if drawing_type_code and drawing_type_code != "unknown":
+                    cur.execute(
+                        """
+                        SELECT
+                            sr.id,
+                            sr.spec_code,
+                            sr.spec_title,
+                            sr.normalized_rule_text,
+                            sr.rule_type,
+                            sr.execution_mode,
+                            sr.severity_default,
+                            sr.entity_scope,
+                            sr.expected_evidence_types,
+                            sr.checker_prompt,
+                            sr.retrieval_recipe,
+                            sr.structured_rule,
+                            sr.rule_version
+                        FROM spec_rules sr
+                        JOIN spec_rule_drawing_types srdt ON srdt.spec_rule_id = sr.id
+                        JOIN drawing_types dt ON dt.id = srdt.drawing_type_id
+                        WHERE sr.spec_document_id = %s
+                          AND sr.approved = TRUE
+                          AND dt.type_code = %s
+                        ORDER BY sr.id
+                        """,
+                        (spec_document_id, drawing_type_code),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT
+                            id,
+                            spec_code,
+                            spec_title,
+                            normalized_rule_text,
+                            rule_type,
+                            execution_mode,
+                            severity_default,
+                            entity_scope,
+                            expected_evidence_types,
+                            checker_prompt,
+                            retrieval_recipe,
+                            structured_rule,
+                            rule_version
+                        FROM spec_rules
+                        WHERE spec_document_id = %s
+                          AND approved = TRUE
+                        ORDER BY id
+                        """,
+                        (spec_document_id,),
+                    )
                 rows = cur.fetchall()
-
         return [dict(r) for r in rows]
