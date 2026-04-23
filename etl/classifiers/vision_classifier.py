@@ -14,6 +14,8 @@ import logging
 import os
 import sys
 import tempfile
+import warnings
+warnings.filterwarnings("ignore", message="Ignoring fixed.*limits")
 
 from .drawing_type_classifier import DrawingTypeResult
 
