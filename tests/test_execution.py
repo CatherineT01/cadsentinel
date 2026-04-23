@@ -352,7 +352,8 @@ class TestSpellcheckEngine:
         cur.fetchone.return_value = None
         conn   = make_conn(cur)
 
-        with patch("cadsentinel.etl.execution.engine.get_connection") as mock_gc:
+        with patch("cadsentinel.etl.execution.engine.get_connection") as mock_gc, \
+             patch("cadsentinel.etl.execution.engine.get_drawing_type", return_value=None):
             mock_gc.return_value.__enter__ = MagicMock(return_value=conn)
             mock_gc.return_value.__exit__  = MagicMock(return_value=False)
 
@@ -426,6 +427,7 @@ class TestSpellcheckEngine:
         conn = make_conn(cur)
 
         with patch("cadsentinel.etl.execution.engine.get_connection") as mock_gc, \
+             patch("cadsentinel.etl.execution.engine.get_drawing_type", return_value=None), \
              patch.object(engine, "_load_approved_rules", return_value=mock_rules), \
              patch.object(engine, "_execute_parallel", return_value=[
                  {"pass_fail": "pass", "confidence": 0.97}

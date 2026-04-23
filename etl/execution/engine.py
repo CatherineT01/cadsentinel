@@ -50,6 +50,7 @@ from .result_writer import (
     mark_run_failed,
     write_run_summary,
 )
+from ..classifiers.type_store import get_drawing_type
 
 log = logging.getLogger(__name__)
 
@@ -117,7 +118,6 @@ class SpellcheckEngine:
 
         # Load approved rules
         # Classify drawing type and filter rules accordingly
-        from ..classifiers.type_store import get_drawing_type
         stored_type = get_drawing_type(drawing_id)
         drawing_type_code = stored_type.type_code if stored_type else None
         log.info(f"Drawing {drawing_id} type: {drawing_type_code}")
