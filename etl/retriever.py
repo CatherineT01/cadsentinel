@@ -286,12 +286,13 @@ class EvidenceRetriever:
 
         return {
             "source":               "drawing_title_block",
+            "found":                r["found"],
             "block_name":           r["block_name"],
             "entity_handle":        r["handle"],
             "layer":                r["layer"],
             "attributes":           r["attributes_json"],
             "geometry":             r["geometry_json"],
-            "detection_confidence": r["detection_confidence"],
+            "detection_confidence": float(r["detection_confidence"] or 0),
             "similarity_score":     None,
         }
 
