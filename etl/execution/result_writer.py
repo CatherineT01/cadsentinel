@@ -87,7 +87,7 @@ def write_execution_result(
                 len(result.get("issues", [])),
                 result.get("issue_summary", ""),
                 json.dumps(result),
-                json.dumps(evidence_package.get("evidence", [])),
+                json.dumps(evidence_package.get("evidence", []), default=str),
                 json.dumps(result.get("llm_raw_response")) if result.get("llm_raw_response") else None,
                 result.get("model_name"),
                 result.get("token_input"),
