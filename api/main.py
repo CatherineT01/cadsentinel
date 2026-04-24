@@ -341,3 +341,98 @@ def get_evaluation_scores(spellcheck_run_id: int):
         "spellcheck_run_id": spellcheck_run_id,
         "scores": [dict(r) for r in rows],
     }
+
+# ── Compatibility endpoint ───────────────────────────────────────── #
+
+class CompatibilityRunRequest(BaseModel):
+    folder_path:      str
+    spec_document_id: int  = 1
+    provider:         str  = "openai"
+    force_reingest:   bool = False
+
+
+@app.post("/api/v1/compatibility/run")
+def run_compatibility_check(req: CompatibilityRunRequest):
+    """
+    Run a full folder compatibility check.
+    Scans all DWG files in the folder, runs spellcheck on each,
+    extracts dimensional specs, and checks compatibility across drawings.
+    """
+    try:
+        inspector_path = os.environ.get(
+            "CADSENTINEL_INSPECTOR_PATH",
+            str(Path(__file__).parent.parent.parent /
+                "dwg_to_json-main" / "out" / "build" / "x64-Release" / "dwg_inspect.exe")
+        )
+
+        from ..etl.compatibility.pipeline import run_folder_check
+
+        report = run_folder_check(
+            folder_path      = req.folder_path,
+            inspector_path   = inspector_path,
+            spec_document_id = req.spec_document_id,
+            provider         = req.provider,
+            force_reingest   = req.force_reingest,
+        )
+        return JSONResponse(content=report)
+
+    except Exception as e:
+        log.exception("Compatibility check failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/compatibility/runs/{drawing_id}/report")
+def get_compatibility_report(drawing_id: int):
+    """Get the latest spellcheck results for a drawing."""
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT
+                        ser.pass_fail,
+                        sr.spec_code,
+                        sr.spec_title,
+                        ser.issue_summary,
+                        ser.confidence
+                    FROM spec_execution_runs ser
+                    JOIN spec_rules sr ON sr.id = ser.spec_rule_id
+                    JOIN spellcheck_runs scr ON scr.id = ser.spellcheck_run_id
+                    WHERE scr.drawing_id = %s
+                      AND scr.id = (
+                          SELECT MAX(id) FROM spellcheck_runs
+                          WHERE drawing_id = %s
+                      )
+                    ORDER BY sr.spec_code
+                """, (drawing_id, drawing_id))
+                rows = cur.fetchall()
+
+                cur.execute("""
+                    SELECT d.filename, dt.type_code, d.drawing_type_confidence
+                    FROM drawings d
+                    LEFT JOIN drawing_types dt ON dt.id = d.drawing_type_id
+                    WHERE d.id = %s
+                """, (drawing_id,))
+                drawing = cur.fetchone()
+
+        if not drawing:
+            raise HTTPException(status_code=404, detail=f"Drawing {drawing_id} not found")
+
+        results = [dict(r) for r in rows]
+        pass_count = sum(1 for r in results if r["pass_fail"] == "pass")
+        total      = len(results)
+
+        return JSONResponse(content={
+            "drawing_id":   drawing_id,
+            "filename":     drawing["filename"],
+            "drawing_type": drawing["type_code"],
+            "pass_rate":    round(pass_count / total * 100) if total > 0 else 0,
+            "pass_count":   pass_count,
+            "total_rules":  total,
+            "results":      results,
+        })
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.exception("Failed to get compatibility report")
+        raise HTTPException(status_code=500, detail=str(e))
