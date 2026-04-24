@@ -124,6 +124,20 @@ def parse_title_block(cur, drawing_id: int, title_block: dict) -> None:
     found      = title_block.get("found", False)
     attributes = title_block.get("attributes", {})
 
+    # Filename fallback for drawing number
+    if found and not attributes.get("DWG NUMBER"):
+        cur.execute("SELECT filename FROM drawings WHERE id = %s", (drawing_id,))
+        row = cur.fetchone()
+        if row and row["filename"]:
+            import os
+            fname = os.path.basename(row["filename"])
+            # Strip extension and revision suffix (REV A, REV B, etc.)
+            import re
+            name = re.sub(r'\.(dwg|dxf)$', '', fname, flags=re.IGNORECASE)
+            name = re.sub(r'\s+REV\s+\w+$', '', name, flags=re.IGNORECASE).strip()
+            attributes = dict(attributes)
+            attributes["DWG NUMBER"] = name
+
     if not found:
         confidence = 0.0
     elif len(attributes) > 4:

@@ -188,13 +188,17 @@ def _process_file(
                 "entity_filters": {}
             },
         )
-        type_result = classifier.classify(
-            drawing_id = drawing_id,
-            filename   = filename,
-            evidence   = package,
-            dwg_path   = filepath,
-        )
-        save_drawing_type(drawing_id, type_result)
+        # Don't re-classify if already manually overridden
+        from ..classifiers.type_store import get_drawing_type
+        existing_type = get_drawing_type(drawing_id)
+        if not (existing_type and existing_type.source == 'manual'):
+            type_result = classifier.classify(
+                drawing_id = drawing_id,
+                filename   = filename,
+                evidence   = package,
+                dwg_path   = filepath,
+            )
+            save_drawing_type(drawing_id, type_result)
 
         return ScanResult(
             filename     = filename,
