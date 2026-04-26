@@ -22,7 +22,7 @@ from .base import (
     BaseValidator, ValidatorResult,
     pass_result, fail_result, needs_review_result, warning_result,
     make_issue, make_evidence_ref,
-    get_entities, get_title_block,
+    get_entities, get_title_block, collect_all_text
 )
 
 DEFAULT_REV_PATTERNS = ["REV*", "*REVISION*", "*REV_TABLE*", "*REVISIONS*"]
@@ -124,6 +124,31 @@ class RevisionTableValidator(BaseValidator):
 
         if rev_attribs:
             return pass_result(severity=severity, evidence_used=evidence_used)
+        # ── Strategy 4: MTEXT text content search ────────────── #
+        combined = collect_all_text(evidence)
+        if combined:
+            # Look for revision table indicators in text
+            rev_indicators = [
+                "revision", "rev.", "rev ", "revisions",
+                "description of change", "change description",
+                "ecn", "dcn", "change notice",
+            ]
+            rev_found = any(ind in combined for ind in rev_indicators)
+
+            # Also look for revision letter/number pattern near "rev"
+            # e.g. "Rev A", "Rev B", "REV. A"
+            import re
+            rev_pattern = re.search(
+                r'\brev\.?\s*[a-z0-9]\b', combined, re.IGNORECASE
+            )
+
+            if rev_found or rev_pattern:
+                evidence_used.append(make_evidence_ref(
+                    source = "text_scan",
+                    ref    = "revision_text",
+                    value  = "revision indicator found in drawing text",
+                ))
+                return pass_result(severity=severity, evidence_used=evidence_used)
 
         # ── No revision information found ─────────────────────── #
 

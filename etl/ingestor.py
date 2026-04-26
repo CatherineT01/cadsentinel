@@ -62,7 +62,7 @@ class DwgIngestor:
 
     # ── Public API ──────────────────────────────────────────────── #
 
-    def ingest(self, dwg_path: str | Path) -> int:
+    def ingest(self, dwg_path: str | Path, force: bool = False) -> int:
         """
         Full ingestion pipeline for one DWG file.
         Returns drawing_id (int) on success.
@@ -82,12 +82,26 @@ class DwgIngestor:
             with conn.cursor() as cur:
 
                 existing = self._find_existing(cur, file_hash)
-                if existing:
+                if existing and not force:
                     log.info(
                         "Already ingested as drawing_id=%d (hash=%s). Skipping.",
                         existing, file_hash,
                     )
                     return existing
+                elif existing and force:
+                    log.info(
+                        "Force re-ingesting: clearing hash for drawing_id=%d",
+                        existing,
+                    )
+                    cur.execute(
+                        "UPDATE drawings SET file_hash = NULL WHERE id = %s",
+                        (existing,)
+                    )
+                    cur.execute(
+                        "DELETE FROM drawing_versions WHERE file_hash = %s",
+                        (file_hash,)
+                    )
+                    conn.commit()
 
                 drawing_id = self._insert_drawing(cur, dwg_path, raw, file_hash)
                 log.info("Inserted drawings row: drawing_id=%d", drawing_id)
