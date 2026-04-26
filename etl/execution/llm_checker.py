@@ -276,9 +276,17 @@ def _parse_llm_result(content: str, severity: str) -> dict:
 
     try:
         raw = json.loads(text[start:end + 1])
-    except json.JSONDecodeError as exc:
-        log.warning("LLM JSON parse failed: %s", exc)
-        return _error_result(f"JSON parse error: {exc}", severity, "", 0)
+    except json.JSONDecodeError:
+        # Try cleaning common issues: invalid escapes, trailing commas
+        import re
+        cleaned = text[start:end + 1]
+        cleaned = re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', cleaned)
+        cleaned = re.sub(r',\s*([}\]])', r'\1', cleaned)
+        try:
+            raw = json.loads(cleaned)
+        except json.JSONDecodeError as exc:
+            log.warning("LLM JSON parse failed: %s", exc)
+            return _error_result(f"JSON parse error: {exc}", severity, "", 0)
 
     # Validate and normalise fields
     pass_fail = raw.get("pass_fail", "needs_review")
