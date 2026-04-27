@@ -240,8 +240,10 @@ class RAGASScorer:
             "drawing_title_block":  "title_block",
             "drawing_dimensions":   "dimension",
             "drawing_layers":       "layer",
-            "drawing_entities":     "entity",
+            "drawing_entities":     "note",
             "drawing_text_chunks":  "note",
+            "chromadb":             "note",
+            "text_scan":            "note",
         }
 
         retrieved_types = set()

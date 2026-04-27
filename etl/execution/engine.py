@@ -177,6 +177,21 @@ class SpellcheckEngine:
                 mark_run_complete(cur, spellcheck_run_id, specs_completed)
                 conn.commit()
 
+        # ── Phase 4: RAGAS per-spec evaluation ───────────────── #
+        try:
+            from ..evaluation.eval_writer import evaluate_spellcheck_run
+            eval_result = evaluate_spellcheck_run(
+                spellcheck_run_id = spellcheck_run_id,
+                use_embeddings    = False,
+            )
+            log.info(
+                "RAGAS evaluation complete: %d runs scored, avg_composite=%.4f",
+                eval_result.get("runs_evaluated", 0),
+                eval_result.get("avg_composite") or 0,
+            )
+        except Exception:
+            log.exception("RAGAS evaluation failed for spellcheck_run_id=%d", spellcheck_run_id)
+
         log.info(
             "Spellcheck run %d complete: pass=%d fail=%d warning=%d review=%d",
             spellcheck_run_id,
